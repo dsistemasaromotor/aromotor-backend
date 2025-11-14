@@ -183,17 +183,20 @@ const Table = ({data}) => {
                 })
 
                 facturasFiltradas.forEach((factura) => {
+                  // Calcular totalChequesValor para la factura
+                  const totalChequesValorFactura = factura.cheques && factura.cheques.length > 0 
+                    ? factura.cheques.reduce((sum, cheque) => {
+                        const facturaEnCheque = cheque.facturas.find(f => f.move_name === factura.numero);
+                        return sum + (facturaEnCheque ? facturaEnCheque.amount_reconcile : 0);
+                      }, 0)
+                    : 0
+
                   // Calcular totales para la fila de total
                   const totalAbono = factura.cuotas.reduce((sum, cuota) => sum + (cuota.debit - cuota.residual), 0).toFixed(2)
                   const totalSaldo = factura.cuotas.reduce((sum, cuota) => sum + cuota.residual, 0).toFixed(2)
                   const totalFactura = factura.total.toFixed(2)
                   const totalCuotas = factura.cuotas.reduce((sum, cuota) => sum + cuota.debit, 0).toFixed(2)
-                  const totalChequesValor = factura.cheques && factura.cheques.length > 0 
-                    ? factura.cheques.reduce((sum, cheque) => {
-                        const facturaEnCheque = cheque.facturas.find(f => f.move_name === factura.numero);
-                        return sum + (facturaEnCheque ? facturaEnCheque.amount_reconcile : 0);
-                      }, 0).toFixed(2)
-                    : "0.00"
+                  const totalChequesValor = totalChequesValorFactura.toFixed(2)
                   const valorSinCustodia = (parseFloat(totalCuotas) - parseFloat(totalAbono) - parseFloat(totalChequesValor)).toFixed(2)
 
                   clientRows.push(
@@ -214,7 +217,8 @@ const Table = ({data}) => {
                     const daysOverdue = getDaysOverdue(cuota.vencimiento)
                     const statusText = getStatusText(daysOverdue, cuota.residual)
                     const statusBgColor = getStatusBgColor(daysOverdue, cuota.residual)
-                    const isOverdue = daysOverdue < 0 && cuota.residual > 0
+                    // Modificar isOverdue: marcar rojo solo si overdue, residual > 0 y NO respaldado por cheque (totalChequesValorFactura === 0)
+                    const isOverdue = daysOverdue < 0 && cuota.residual > 0 && totalChequesValorFactura === 0
                     clientRows.push(
                       <tr key={`cuota-${factura.id}-${index}`} className="group">
                         <td className={`px-6 py-3 text-sm font-medium text-gray-700 ${isOverdue ? 'text-red-600 font-bold' : ''}`}>-</td>

@@ -159,11 +159,11 @@ const Table = ({data}) => {
                 clientRows.push(
                   <tr key={`client-${clienteData.cliente}`} className="bg-gray-200 font-bold">
                     <td colSpan="4" className="px-6 py-4 text-sm text-gray-900 uppercase">{clienteData.cliente}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">${totalCuotasCliente}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">$ {totalCuotasCliente}</td>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900"></td>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900"></td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">${totalSaldoCliente}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">${valorSinCustodiaCliente}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">$ {totalSaldoCliente}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">$ {valorSinCustodiaCliente}</td>
                     <td className="px-6 py-4"></td>
                   </tr>,
                 )
@@ -208,14 +208,14 @@ const Table = ({data}) => {
                         <td className={`px-5 py-3 text-sm text-gray-700 ${isOverdue ? 'text-red-600 font-bold' : ''}`}>Cuota {index + 1}</td>
                         <td className={`px-6 py-3 text-sm text-gray-700 ${isOverdue ? 'text-red-600 font-bold' : ''}`}>{cuota.vencimiento}</td>
                         <td className={`px-6 py-3 text-sm font-semibold text-gray-900 ${isOverdue ? 'text-red-600 font-bold' : ''}`}>
-                          {cuota.debit?.toFixed(2) || "0.00"}
+                          $ {cuota.debit?.toFixed(2) || "0.00"}
                         </td>
                         <td className={`px-6 py-3 text-sm font-semibold text-gray-900 ${isOverdue ? 'text-red-600 font-bold' : ''}`}>
-                          {(cuota.debit - cuota.residual).toFixed(2)}
+                          $ {(cuota.debit - cuota.residual).toFixed(2)}
                         </td>
                         <td className={`px-6 py-3 text-sm ${isOverdue ? 'text-red-600 font-bold' : ''}`}>-</td>
                         <td className={`px-6 py-3 text-sm font-semibold text-gray-900 ${isOverdue ? 'text-red-600 font-bold' : ''}`}>
-                          {cuota.residual?.toFixed(2) || "0.00"}
+                          $ {cuota.residual?.toFixed(2) || "0.00"}
                         </td>
                         <td className={`px-6 py-3 text-sm ${isOverdue ? 'text-red-600 font-bold' : ''}`}>-</td>
                         <td className={`px-6 py-3 text-sm ${getStatusColor(daysOverdue, cuota.residual)} whitespace-nowrap`}>
@@ -228,12 +228,12 @@ const Table = ({data}) => {
                   clientRows.push(
                     <tr key={`total-${factura.id}`} className="bg-blue-50 font-bold">
                       <td colSpan="4" className="px-6 py-3 text-sm text-gray-900">Total</td>
-                      <td className="px-6 py-3 text-sm font-bold text-gray-900">{totalCuotas}</td>
-                      <td className="px-6 py-3 text-sm font-bold text-gray-900">{totalAbono}</td>
-                      <td className="px-6 py-3 text-sm font-bold text-gray-900">{factura.retencion_total?.toFixed(2) || "0.00"}</td>
-                      <td className="px-6 py-3 text-sm font-bold text-gray-900">{totalSaldo}</td>
-                      <td className="px-6 py-3 text-sm font-bold text-gray-900">{valorSinCustodia}</td>
-                      <td className="px-6 py-3 text-sm">-</td>
+                      <td className="px-6 py-3 text-sm font-bold text-gray-900">$ {totalCuotas}</td>
+                      <td className="px-6 py-3 text-sm font-bold text-gray-900">$ {totalAbono}</td>
+                      <td className="px-6 py-3 text-sm font-bold text-gray-900">$ {factura.retencion_total?.toFixed(2) || "0.00"}</td>
+                      <td className="px-6 py-3 text-sm font-bold text-gray-900">$ {totalSaldo}</td>
+                      <td className="px-6 py-3 text-sm font-bold text-gray-900">$ {valorSinCustodia}</td>
+                      <td className="px-6 py-3 text-sm"></td>
                     </tr>,
                   )
                 })

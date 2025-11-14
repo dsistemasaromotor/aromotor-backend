@@ -184,7 +184,7 @@ const Table = ({data}) => {
 
                   clientRows.push(
                     <tr key={`factura-${factura.id}`} className="bg-gray-100">
-                      <td className="px-6 py-3 text-sm font-bold text-gray-600 truncate">{factura.numero}</td>
+                      <td className="px-6 py-3 text-sm font-bold text-gray-900 truncate">{factura.numero}</td>
                       <td className="px-6 py-3 text-xs font-bold text-gray-700">{factura.fecha}</td>
                       <td className="px-6 py-3 text-xs text-gray-700">-</td>
                       <td className="px-6 py-3 text-sm text-gray-700">-</td>

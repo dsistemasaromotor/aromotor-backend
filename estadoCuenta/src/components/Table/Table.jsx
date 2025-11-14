@@ -157,7 +157,7 @@ const Table = ({data}) => {
                 const totalRetencionCliente = clienteData.facturas.reduce((sum, factura) => sum + (factura.retencion_total || 0), 0).toFixed(2)
 
                 clientRows.push(
-                  <tr key={`client-${clienteData.cliente}`} className="bg-gray-300 font-bold">
+                  <tr key={`client-${clienteData.cliente}`} className="bg-gray-200 font-bold">
                     <td colSpan="4" className="px-6 py-4 text-sm text-gray-900 uppercase">{clienteData.cliente}</td>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900">${totalCuotasCliente}</td>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900">${totalAbonoCliente}</td>
@@ -183,7 +183,7 @@ const Table = ({data}) => {
                   const valorSinCustodia = (parseFloat(totalCuotas) - parseFloat(totalAbono) - parseFloat(totalChequesValor)).toFixed(2)
 
                   clientRows.push(
-                    <tr key={`factura-${factura.id}`} className="bg-gray-200">
+                    <tr key={`factura-${factura.id}`} className="bg-gray-100">
                       <td className="px-6 py-3 text-sm font-bold text-gray-600 truncate">{factura.numero}</td>
                       <td className="px-6 py-3 text-xs font-bold text-gray-700">{factura.fecha}</td>
                       <td className="px-6 py-3 text-xs text-gray-700">-</td>

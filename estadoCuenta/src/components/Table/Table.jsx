@@ -35,17 +35,52 @@ const Table = ({data}) => {
     }, [cxc])
 
     const getDaysOverdue = (vencimiento) => {
-        const vencimientoDate = new Date(vencimiento)
-        const hoy = new Date()
-        return Math.floor((vencimientoDate - hoy) / (1000 * 60 * 60 * 24))
-    }
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+  // función para convertir string DD/MM/YYYY o YYYY-MM-DD a milisegundos UTC a medianoche
+  const parseToUtcMidnight = (s) => {
+      if (!s) return NaN;
+
+      // si viene DD/MM/YYYY
+      const ddmmyyyy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (ddmmyyyy) {
+        const day = parseInt(ddmmyyyy[1], 10);
+        const month = parseInt(ddmmyyyy[2], 10) - 1; // meses 0-11
+        const year = parseInt(ddmmyyyy[3], 10);
+        return Date.UTC(year, month, day); // UTC midnight
+      }
+
+      // si viene YYYY-MM-DD (ISO) o Date.parse lo entiende, lo convertimos seguro:
+      const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      if (iso) {
+        const year = parseInt(iso[1], 10);
+        const month = parseInt(iso[2], 10) - 1;
+        const day = parseInt(iso[3], 10);
+        return Date.UTC(year, month, day);
+      }
+
+      // fallback: intentar con constructor Date y llevar a UTC midnight del resultado
+      const d = new Date(s);
+      if (isNaN(d)) return NaN;
+      return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+    };
+
+    const vencUtc = parseToUtcMidnight(vencimiento);
+    if (isNaN(vencUtc)) throw new Error('Fecha de vencimiento inválida. Usa "DD/MM/YYYY" o "YYYY-MM-DD".');
+
+    const now = new Date();
+    const todayUtcMidnight = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const diffDays = Math.floor((vencUtc - todayUtcMidnight) / MS_PER_DAY);
+    return diffDays;
+  };
 
     
   const getStatusColor = (daysOverdue, residual) => {
-    if (residual === 0) return "text-emerald-600 font-bold"
+    if (residual === 0) return "text-gray-600 font-bold"
     if (daysOverdue < 0) return "text-red-600 font-bold"
     if (daysOverdue === 0) return "text-amber-600 font-bold"
-    return "text-emerald-600 font-bold"
+    return "text-gray-600 font-bold"
   }
 
   const getStatusText = (daysOverdue, residual) => {
@@ -56,10 +91,10 @@ const Table = ({data}) => {
   }
 
   const getStatusBgColor = (daysOverdue, residual) => {
-    if (residual === 0) return "bg-emerald-100 border-emerald-300"
+    if (residual === 0) return "bg-gray-100 border-gray-300"
     if (daysOverdue < 0) return "bg-red-100 border-red-300"
     if (daysOverdue === 0) return "bg-amber-100 border-amber-300"
-    return "bg-emerald-100 border-emerald-300"
+    return "bg-gray-100 border-gray-300"
   }
 
   if (isLoading) {
@@ -86,18 +121,16 @@ const Table = ({data}) => {
           {/* Table Header */}
           <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-40">Factura</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-32">Fecha de Emisión</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-20">Cuotas</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-24">Fecha máxima</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-24">Valor cuota</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-20">Abono</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-20">Saldo</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-20">Cheques custodia</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-20">Valor Cheque</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-24">Valor sin custodia</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-20">Retención</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-16">Días</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-48">Factura</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-40">Fecha de Emisión</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-24">Cuotas</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-28">Fecha máxima</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-28">Valor cuota</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-24">Abono</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-24">Retención</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-24">Saldo</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-28">Valor sin custodia</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide w-20">Días</th>
             </tr>
           </thead>
 
@@ -121,17 +154,16 @@ const Table = ({data}) => {
                   return sum + totalChequesFactura
                 }, 0).toFixed(2)
                 const valorSinCustodiaCliente = (parseFloat(totalCuotasCliente) - parseFloat(totalAbonoCliente) - parseFloat(totalChequesValorCliente)).toFixed(2)
+                const totalRetencionCliente = clienteData.facturas.reduce((sum, factura) => sum + (factura.retencion_total || 0), 0).toFixed(2)
 
                 clientRows.push(
                   <tr key={`client-${clienteData.cliente}`} className="bg-gray-200 hover:bg-red-50 transition-colors font-bold">
                     <td colSpan="4" className="px-6 py-4 text-sm text-gray-900 uppercase">{clienteData.cliente}</td>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900">${totalCuotasCliente}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-emerald-600">${totalAbonoCliente}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">${totalAbonoCliente}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900"></td>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900">${totalSaldoCliente}</td>
-                    <td className="px-6 py-4">-</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">${totalChequesValorCliente}</td>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900">${valorSinCustodiaCliente}</td>
-                    <td className="px-6 py-4">-</td>
                     <td className="px-6 py-4">-</td>
                   </tr>,
                 )
@@ -157,11 +189,9 @@ const Table = ({data}) => {
                       <td className="px-6 py-3 text-xs text-gray-700">-</td>
                       <td className="px-6 py-3 text-sm text-gray-700">-</td>
                       <td className="px-6 py-3 text-sm font-semibold text-gray-900">-</td>
-                      <td className="px-6 py-3 text-sm font-bold text-emerald-600">-</td>
                       <td className="px-6 py-3 text-sm font-bold text-gray-900">-</td>
                       <td className="px-6 py-3 text-sm">-</td>
-                      <td className="px-6 py-3 text-sm">-</td>
-                      <td className="px-6 py-3 text-sm">-</td>
+                      <td className="px-6 py-3 text-sm font-bold text-gray-900">-</td>
                       <td className="px-6 py-3 text-sm">-</td>
                       <td className="px-6 py-3 text-sm">-</td>
                     </tr>,
@@ -171,7 +201,7 @@ const Table = ({data}) => {
                     const statusText = getStatusText(daysOverdue, cuota.residual)
                     const statusBgColor = getStatusBgColor(daysOverdue, cuota.residual)
                     clientRows.push(
-                      <tr key={`cuota-${factura.id}-${index}`} className="group">
+                      <tr key={`cuota-${factura.id}-${index}`} className={`group ${daysOverdue < 0 && cuota.residual > 0 ? 'bg-red-100' : daysOverdue === 0 && cuota.residual > 0 ? 'bg-amber-100' : ''}`}>
                         <td className="px-6 py-3 text-sm font-medium text-gray-700">-</td>
                         <td className="px-6 py-3 text-sm text-gray-600">-</td>
                         <td className="px-5 py-3 text-sm text-gray-700">Cuota {index + 1}</td>
@@ -182,55 +212,13 @@ const Table = ({data}) => {
                         <td className="px-6 py-3 text-sm font-semibold text-gray-900">
                           ${(cuota.debit - cuota.residual).toFixed(2)}
                         </td>
+                        <td className="px-6 py-3 text-sm">-</td>
                         <td className="px-6 py-3 text-sm font-semibold text-gray-900">
                           ${cuota.residual?.toFixed(2) || "0.00"}
                         </td>
-                        {index === 0 && (
-                          <>
-                            <td className="px-6 py-3 text-sm font-semibold text-gray-900" rowSpan={factura.cuotas.length}>
-                              {factura.cheques && factura.cheques.length > 0 ? (
-                                factura.cheques.map((cheque) => {
-                                  const facturaEnCheque = cheque.facturas.find(f => f.move_name === factura.numero);
-                                  if (facturaEnCheque) {
-                                    return (
-                                      <div key={cheque.id} className="mb-1">
-                                        {cheque.ncheque}
-                                      </div>
-                                    );
-                                  }
-                                  return null;
-                                })
-                              ) : (
-                                <span>No hay cheques</span>
-                              )}
-                            </td>
-                            <td className="px-6 py-3 text-sm font-semibold text-gray-900" rowSpan={factura.cuotas.length}>
-                              {factura.cheques && factura.cheques.length > 0 ? (
-                                factura.cheques.map((cheque) => {
-                                  const facturaEnCheque = cheque.facturas.find(f => f.move_name === factura.numero);
-                                  if (facturaEnCheque) {
-                                    return (
-                                      <div key={cheque.id} className="mb-1">
-                                        ${facturaEnCheque.amount_reconcile.toFixed(2)}
-                                      </div>
-                                    );
-                                  }
-                                  return null;
-                                })
-                              ) : (
-                                <span>-</span>
-                              )}
-                            </td>
-                          </>
-                        )}
                         <td className="px-6 py-3 text-sm">-</td>
-                        {index === 0 && (
-                          <td className="px-6 py-3 text-sm font-bold text-gray-900" rowSpan={factura.cuotas.length}>
-                            {factura.retencion_total ? `$${factura.retencion_total.toFixed(2)}` : "N/A"}
-                          </td>
-                        )}
                         <td className={`px-6 py-3 text-sm ${getStatusColor(daysOverdue, cuota.residual)} whitespace-nowrap`}>
-                          {cuota.residual === 0 ? "0 días" : `${daysOverdue} días`}
+                          {cuota.residual === 0 ? "0 días" : daysOverdue < 0 ? `${Math.abs(daysOverdue)} días` : "0 días"}
                         </td>
                       </tr>,
                     )
@@ -241,11 +229,9 @@ const Table = ({data}) => {
                       <td colSpan="4" className="px-6 py-3 text-sm text-gray-900">Total</td>
                       <td className="px-6 py-3 text-sm font-bold text-gray-900">${totalCuotas}</td>
                       <td className="px-6 py-3 text-sm font-bold text-gray-900">${totalAbono}</td>
+                      <td className="px-6 py-3 text-sm font-bold text-gray-900">${factura.retencion_total?.toFixed(2) || "0.00"}</td>
                       <td className="px-6 py-3 text-sm font-bold text-gray-900">${totalSaldo}</td>
-                      <td className="px-6 py-3 text-sm">-</td>
-                      <td className="px-6 py-3 text-sm font-bold text-gray-900">${totalChequesValor}</td>
                       <td className="px-6 py-3 text-sm font-bold text-gray-900">${valorSinCustodia}</td>
-                      <td className="px-6 py-3 text-sm">-</td>
                       <td className="px-6 py-3 text-sm">-</td>
                     </tr>,
                   )
@@ -255,7 +241,7 @@ const Table = ({data}) => {
               })
             ) : (
               <tr>
-                <td colSpan="12" className="px-6 py-12 text-center">
+                <td colSpan="10" className="px-6 py-12 text-center">
                   <div className="flex flex-col items-center gap-3">
                     <Search className="w-8 h-8 text-gray-300" />
                     <p className="text-gray-600 font-semibold">No se encontraron facturas</p>

@@ -46,7 +46,8 @@ def obtener_cxc_aromotor(request):
             'id', 'name', 'partner_id', 'invoice_date',
             'amount_total', 'amount_residual',
             'x_retention_id'  # Campos agregados para acceder a la retención
-        ]
+        ], 
+        'order': 'invoice_date ASC'
     }
     # Limitar a 20 facturas si no hay filtro de cliente
     if not cliente_filtro:

@@ -103,6 +103,9 @@ const Table = ({data}) => {
   }
 
   const exportToPDF = (data) => {
+    // Ordenar los clientes alfabéticamente de A a Z
+    data.sort((a, b) => a.cliente.toLowerCase().localeCompare(b.cliente.toLowerCase()));
+
     const doc = new jsPDF();
 
     // --- Encabezado ---
@@ -249,6 +252,9 @@ const Table = ({data}) => {
 
 
   const exportToExcel = (data) => {
+    // Ordenar los clientes alfabéticamente de A a Z
+    data.sort((a, b) => a.cliente.toLowerCase().localeCompare(b.cliente.toLowerCase()));
+
     const rows = [];
     // Agregar encabezado de la tabla
     rows.push(['Factura', 'Fecha de Emisión', 'Cuotas', 'Fecha máxima', 'Valor cuota', 'Abono', 'Retención', 'Saldo', 'Valor sin custodia', 'Días']);
@@ -340,6 +346,7 @@ const Table = ({data}) => {
     XLSX.writeFile(wb, "estado_cuenta.xlsx");
   };
 
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50">
@@ -396,7 +403,8 @@ const Table = ({data}) => {
           {/* Table Body */}
           <tbody className="divide-y divide-gray-200">
             {cxc.length > 0 ? (
-              cxc.flatMap((clienteData) => {
+              // Ordenar los clientes alfabéticamente de A a Z
+              cxc.sort((a, b) => a.cliente.toLowerCase().localeCompare(b.cliente.toLowerCase())).flatMap((clienteData) => {
                 const clientRows = []
 
                 // Calcular totales por cliente sobre todas las facturas (sin filtrar)
@@ -533,6 +541,7 @@ const Table = ({data}) => {
       </div>
     </div>
   )
+
 }
 
 export default Table

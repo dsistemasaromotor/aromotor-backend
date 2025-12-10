@@ -185,4 +185,4 @@ JAZZMIN_UI_TWEAKS = {
 }
 
 
-FRONTEND_URL = 'http://localhost:5173/estadoCuenta' 
+FRONTEND_URL = 'https://steevensaurio.github.io/estadoCuenta' 

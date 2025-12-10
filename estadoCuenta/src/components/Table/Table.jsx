@@ -6,8 +6,32 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import logoImg from "../../assets/imgLogo.png"
+import Cookie from "js-cookie"
+import {jwtDecode} from 'jwt-decode'
 
 const Table = ({data}) => {
+
+
+  const getUserPermissions = () => {
+    const token = Cookie.get("access_token");
+    if (!token) return { can_view_cartera: false, can_export_excel_cartera: false, can_export_pdf_cartera: false }
+    
+    try {
+      const decoded = jwtDecode(token)
+      console.log(decoded);
+      
+      return decoded.permisos || { can_view_cartera: false, can_export_excel_cartera: false, can_export_pdf_cartera: false }
+    } catch (error) {
+      console.error("Error decodificando token:", error)
+      return { can_view_cartera: false, can_export_excel_cartera: false, can_export_pdf_cartera: false }
+    }
+  }
+  const userPermissions = getUserPermissions()
+  // Si no puede ver Cartera, redirigir o mostrar error
+  if (!userPermissions.can_view_cartera) {
+    return <div>No tienes permisos para acceder a esta sección.</div>
+  }
+  
     const cxc = data
     const {isLoading} = useSearch()
     
@@ -383,20 +407,24 @@ const Table = ({data}) => {
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
       <div className="flex justify-end p-4 space-x-2">
-        <button 
-          className="flex items-center px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 shadow-sm"
-          onClick={() => exportToPDF(cxc)}
-        >
-          <FileText className="w-4 h-4 mr-2" />
-          Exportar PDF
-        </button>
-        <button 
-          className="flex items-center px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200 shadow-sm"
-          onClick={() => exportToExcel(cxc)}
-        >
-          <FileSpreadsheet className="w-4 h-4 mr-2" />
-          Exportar Excel
-        </button>
+        {userPermissions.can_export_pdf_cartera && (
+          <button 
+            className="flex items-center px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 shadow-sm"
+            onClick={() => exportToPDF(cxc)}
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Exportar PDF
+          </button>
+        )}
+        {userPermissions.can_export_excel_cartera && (
+          <button 
+            className="flex items-center px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200 shadow-sm"
+            onClick={() => exportToExcel(cxc)}
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Exportar Excel
+          </button>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">

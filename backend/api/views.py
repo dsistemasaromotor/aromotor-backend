@@ -1,11 +1,40 @@
 from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
+from api import serializer as api_serializer
 from rest_framework.views import APIView
-from rest_framework import status
+from rest_framework import status, generics
 from collections import defaultdict
 import requests
 import xmlrpc.client
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from useauth.models import User, Perfil
+from rest_framework_simplejwt.views import TokenObtainPairView
+from django.conf import settings
+from rest_framework_simplejwt.tokens import AccessToken, TokenError 
+
+
+class MyTokenObtainPairView(TokenObtainPairView):
+
+    serializer_class = api_serializer.MyTokenObtainPairSerializer
+
+
+class UsersList(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = User.objects.all()
+    serializer_class = api_serializer.UserSerializer
+
+
+class RegistroUsuarioView(generics.CreateAPIView):
+    serializer_class = api_serializer.RegistroUsuarioSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)  # Esto lanzará un error 400 si no es válido
+        self.perform_create(serializer)  # Guarda el nuevo usuario y tutor
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
 
 
 @api_view(['GET'])
@@ -214,3 +243,112 @@ def obtener_cxc_aromotor(request):
     ]
         
     return Response(cxc)
+
+
+class EditarUsuarioView(generics.RetrieveUpdateAPIView):
+    queryset = User.objects.all()
+    serializer_class = api_serializer.UserSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'id'
+
+class ListarPerfilesView(generics.ListAPIView):
+    queryset = Perfil.objects.all()
+    serializer_class = api_serializer.PerfilSerializer  # Necesitas este serializer
+    # permission_classes = [IsAuthenticated]  # O ajusta según permisos
+
+
+class CrearUsuarioSinPasswordView(generics.CreateAPIView):
+    serializer_class = api_serializer.CrearUsuarioSinPasswordSerializer
+    # permission_classes = [IsAuthenticated]  # Solo admins pueden crear usuarios
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        
+        # Generar token JWT para set password
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(user)
+        token = refresh.access_token  # Obtener el access token como objeto (no string aún)
+        
+        # Agregar campos adicionales al token (ej. username y full_name)
+        token['username'] = user.username
+        token['full_name'] = user.full_name
+        token['email'] = user.email  # Opcional, si lo quieres
+        
+        # Convertir a string para el enlace
+        token_str = str(token)
+        # Generar el enlace completo
+        enlace = f"{settings.FRONTEND_URL}/set-password?token={token}"
+        
+        # Devolver el enlace en la respuesta (sin enviar email)
+        return Response({
+            'message': 'Usuario creado exitosamente',
+            'enlace_cambiar_contraseña': enlace,
+            'usuario': serializer.data
+        }, status=status.HTTP_201_CREATED)
+    
+class SetPasswordView(generics.GenericAPIView):
+    serializer_class = api_serializer.SetPasswordSerializer
+    permission_classes = [AllowAny]  # Cualquiera con el token puede acceder
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        token = serializer.validated_data['token']
+        new_password = serializer.validated_data['new_password']
+        
+        try:
+            # Decodificar token para obtener user_id
+            access_token = AccessToken(token)
+            user_id = access_token['user_id']
+            user = User.objects.get(id=user_id)
+            
+            # Actualizar contraseña
+            user.set_password(new_password)
+            user.save()
+            
+            return Response({'message': 'Contraseña actualizada exitosamente'}, status=status.HTTP_200_OK)
+        except (TokenError, User.DoesNotExist):
+            return Response({'error': 'Token inválido o expirado'}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+class GenerarEnlaceResetView(APIView):
+    # permission_classes = [IsAuthenticated]  # Solo admins pueden generar enlaces
+    # serializer_class = api_serializer.GenerarEnlaceResetSerializer  # Opcional, si quieres validación
+    
+    def post(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({'error': 'user_id requerido'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Generar token JWT para reset password
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(user)
+        token = refresh.access_token
+        
+        # Agregar campos opcionales al token (ej. username para mostrar en frontend)
+        token['username'] = user.username
+        token['full_name'] = user.full_name
+        
+        token_str = str(token)
+        
+        # Generar el enlace
+        enlace = f"{settings.FRONTEND_URL}/set-password?token={token_str}"
+        
+        return Response({
+            'message': f'Enlace generado para {user.username}',
+            'enlace_cambiar_contraseña': enlace,
+            'usuario': {
+                'id': user.id,
+                'username': user.username,
+                'full_name': user.full_name,
+                'email': user.email
+            }
+        }, status=status.HTTP_200_OK)

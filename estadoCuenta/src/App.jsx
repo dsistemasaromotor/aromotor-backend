@@ -1,63 +1,45 @@
-import axios from 'axios'
-import React, { useState, useEffect } from 'react'
-import NavBar from './components/NavBar/NavBar'
-import Table from './components/Table/Table'
-import Footer from './components/Footer/Footer'
-import SearchBar from './components/SearchBar/SearchBar'
-import { useSearch } from './hooks/useSearch'
-
+import { SearchProvider } from './context/SearchContext.jsx'
+import { BrowserRouter, Routes, Route  } from 'react-router-dom'
+import Login from './pages/Login.jsx'
+import EstadoCuenta from './pages/estadoCuenta.jsx'
+import MainWrapper from './layouts/MainWrapper.jsx'
+import PrivateRoute from './layouts/PrivateRoute.jsx'
+import SetPassword from './pages/SetPassword.jsx'
+import NotFound from './pages/NotFound.jsx'
+import Dashboard from './pages/Dashboard.jsx'
+import Usuarios from './pages/Usuarios.jsx'
+import CrearUsuario from './pages/CrearUsuario.jsx'
+import EditarUsuario from './pages/EditarUsuario.jsx'
 
 function App() {
-
-  const apiUrl = import.meta.env.VITE_API_URL;
-  const {setIsLoading, clientes, setClientes} = useSearch()
-
-  const obtener_estado_cuenta = async () => {
-    try {
-      setIsLoading(true) // empieza el loading
-      const response = await axios.get(`${apiUrl}obtener-cxc/`)
-      setClientes(response.data)
-      console.log(response.data)
-    } catch (error) {
-      console.error("Error al obtener datos:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const consultar = async (term, termVendedor, emisionDesde, emisionHasta, venciDesde, venciHasta) => {
-    try {
-      setIsLoading(true)
-      const response = await axios.get(`${apiUrl}obtener-cxc/?cliente=${term}&comercial=${termVendedor}&emision_desde=${emisionDesde}&emision_hasta=${emisionHasta}&vencimiento_desde=${venciDesde}&vencimiento_hasta=${venciHasta}`, {})
-      setClientes(response.data)
-      console.log(response.data)
-    } catch (error) {
-      console.error("Error al obtener datos:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-
-  useEffect(() => {
-    obtener_estado_cuenta()
-  }, [])
-
-
   return (
 
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-
-        <NavBar/>
-        <main className="max-w-full mx-auto px-6 py-8">
-          <SearchBar consultar={consultar}/>
-          <Table data={clientes} />
-          <Footer/>
-        </main>
-        
-
-    </div>
-    
+    <BrowserRouter>
+      <MainWrapper>
+        <Routes>
+          <Route path="/estadoCuenta/login" element={<Login/>} />
+          <Route path="/estadoCuenta/home" element={<Dashboard/>} />
+          <Route path="/estadoCuenta/set-password" element={<SetPassword/>} />
+          <Route path="/estadoCuenta/usuarios" element={<Usuarios/>} />
+          <Route path="/usuarios/editar/:id" element={<EditarUsuario />} />
+          <Route 
+            path="/usuarios/crear"  
+            element={<CrearUsuario />} 
+          />
+          <Route
+            path="/estadoCuenta/"
+            element={
+              <PrivateRoute>
+                <SearchProvider>
+                  <EstadoCuenta />
+                </SearchProvider>
+              </PrivateRoute>
+            }
+          />
+          <Route path="*" element={<NotFound/>} />
+        </Routes>
+      </MainWrapper>
+    </BrowserRouter>
   )
 }
 

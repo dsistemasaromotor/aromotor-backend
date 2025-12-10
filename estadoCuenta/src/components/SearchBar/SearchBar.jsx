@@ -1,8 +1,13 @@
 import { Search } from 'lucide-react'
 import { useSearch } from '../../hooks/useSearch'
+import Cookie from 'js-cookie'; 
+import { jwtDecode } from 'jwt-decode'  // Cambié a 'jwt-decode' por consistencia
 
-const SearchBar = ({ consultar, exportToExcel }) => {
-  const { clientes, searchTerm, setSearchTerm, searchTermVendedor, setSearchTermVendedor, fechaEmisionDesde, setFechaEmisionDesde, fechaEmisionHasta, setFechaEmisionHasta,  fechaVenciDesde, setFechaVenciDesde, fechaVenciHasta, setFechaVenciHasta} = useSearch()
+const SearchBar = ({ consultar }) => {
+  const { clientes, searchTerm, setSearchTerm, searchTermVendedor, setSearchTermVendedor, fechaEmisionDesde, setFechaEmisionDesde, fechaEmisionHasta, setFechaEmisionHasta, fechaVenciDesde, setFechaVenciDesde, fechaVenciHasta, setFechaVenciHasta } = useSearch()
+
+  const userData = jwtDecode(Cookie.get("access_token"))
+  const perfil = userData?.perfil;
 
   return (
     <div className="mb-8">
@@ -29,18 +34,21 @@ const SearchBar = ({ consultar, exportToExcel }) => {
                 />
               </div>
 
-              <div className="flex-1">
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
-                  Vendedor
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ingrese nombre..."
-                  value={searchTermVendedor}
-                  onChange={(e) => setSearchTermVendedor(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-100 transition-all text-xs text-gray-900"
-                />
-              </div>
+              {/* Campo Vendedor: Solo mostrar si perfil !== 3 */}
+              {perfil !== 3 && (
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">
+                    Vendedor
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ingrese nombre..."
+                    value={searchTermVendedor}
+                    onChange={(e) => setSearchTermVendedor(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-100 transition-all text-xs text-gray-900"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -98,7 +106,7 @@ const SearchBar = ({ consultar, exportToExcel }) => {
                   Hasta
                 </label>
                 <input
-                value={fechaVenciHasta}
+                  value={fechaVenciHasta}
                   onChange={(e) => setFechaVenciHasta(e.target.value)}
                   type="date"
                   className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-100 transition-all text-xs text-gray-900"
@@ -110,7 +118,7 @@ const SearchBar = ({ consultar, exportToExcel }) => {
           {/* Botón Consultar */}
           <div className="flex justify-center lg:self-center">
             <button
-              onClick={() => consultar(searchTerm, searchTermVendedor, fechaEmisionDesde, fechaEmisionHasta,  fechaVenciDesde, fechaVenciHasta)}
+              onClick={() => consultar(searchTerm, searchTermVendedor, fechaEmisionDesde, fechaEmisionHasta, fechaVenciDesde, fechaVenciHasta)}
               className="px-6 md:px-8 py-2.5 md:py-3 bg-red-600 text-white font-bold text-sm md:text-base rounded-lg md:rounded-xl hover:bg-red-700 transition-colors shadow-sm hover:shadow-lg border border-red-700 whitespace-nowrap"
             >
               Consultar

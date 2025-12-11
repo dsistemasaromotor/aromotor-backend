@@ -14,7 +14,7 @@ import EditarUsuario from './pages/EditarUsuario.jsx'
 function App() {
   return (
 
-    <BrowserRouter>
+    <BrowserRouter basename='/estadoCuenta'>
       <MainWrapper>
         <Routes>
           <Route path="/estadoCuenta/login" element={<Login/>} />

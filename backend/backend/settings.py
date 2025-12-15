@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-i3vpurbg7f98%z-afot!m9q_$t*mxxf&oh1i8kyk*_#p@@695n
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'estadocuenta-2f2j.onrender.com']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'estadocuenta-2f2j.onrender.com', 'aromotor-backend.onrender.com']
 
 
 # Application definition

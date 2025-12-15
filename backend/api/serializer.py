@@ -28,6 +28,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                 "can_view_ajustes": perfil.can_view_ajustes,
                 "can_view_usuarios": perfil.can_view_usuarios,
                 "can_export_excel_cartera": perfil.can_export_excel_cartera,
+                "can_export_all_cartera": perfil.can_export_all_cartera,
                 "can_export_pdf_cartera": perfil.can_export_pdf_cartera,
             }
         else:
@@ -37,6 +38,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                 "can_view_ajustes": False,
                 "can_view_usuarios": False,
                 "can_export_excel_cartera": False,
+                "can_export_all_cartera": False,
                 "can_export_pdf_cartera": False,
             }
 
@@ -52,6 +54,7 @@ class UserSerializer(serializers.ModelSerializer):
     can_view_ajustes = serializers.SerializerMethodField()
     can_view_usuarios = serializers.SerializerMethodField()
     can_export_excel_cartera = serializers.SerializerMethodField()
+    can_export_all_cartera = serializers.SerializerMethodField()
     can_export_pdf_cartera = serializers.SerializerMethodField()
     
     class Meta:
@@ -60,7 +63,7 @@ class UserSerializer(serializers.ModelSerializer):
             'id','username', 'email', 'full_name', 'cedula', 
             'genero', 'fecha_nacimiento', 'telefono', 'id_perfil_FK',
             'can_view_cartera', 'can_view_ajustes', 'can_view_usuarios',
-            'can_export_excel_cartera', 'can_export_pdf_cartera'  # Agregar nuevos permisos
+            'can_export_excel_cartera','can_export_all_cartera', 'can_export_pdf_cartera' 
         ]
     
     def get_can_view_cartera(self, obj):
@@ -74,6 +77,9 @@ class UserSerializer(serializers.ModelSerializer):
     
     def get_can_export_excel_cartera(self, obj):
         return obj.id_perfil_FK.can_export_excel_cartera if obj.id_perfil_FK else False
+    
+    def get_can_export_all_cartera(self, obj):
+        return obj.id_perfil_FK.can_export_all_cartera if obj.id_perfil_FK else False
     
     def get_can_export_pdf_cartera(self, obj):
         return obj.id_perfil_FK.can_export_pdf_cartera if obj.id_perfil_FK else False

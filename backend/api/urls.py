@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import obtener_cxc_aromotor
+from .views import obtener_cxc_aromotor, obtener_cartera_completa
 from api import views as api_views
 from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
@@ -7,6 +7,7 @@ from . import views
 
 urlpatterns = [
     path('obtener-cxc/', obtener_cxc_aromotor),
+    path('get-cartera-completa/', obtener_cartera_completa),
     path("user/token/", api_views.MyTokenObtainPairView.as_view()),
     path("user/token/refresh/", TokenRefreshView.as_view()),
     path("users/", api_views.UsersList.as_view(), name="Listado de usuarios"),

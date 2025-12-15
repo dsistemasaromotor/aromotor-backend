@@ -14,6 +14,7 @@ class Perfil(models.Model):
     
     # Permisos específicos dentro de "Cartera"
     can_export_excel_cartera = models.BooleanField(default=False, verbose_name="Puede exportar Cartera a Excel")
+    can_export_all_cartera = models.BooleanField(default=False, verbose_name="Puede exportar Cartera Completa")
     can_export_pdf_cartera = models.BooleanField(default=False, verbose_name="Puede exportar Cartera a PDF")
     
     def __str__(self):

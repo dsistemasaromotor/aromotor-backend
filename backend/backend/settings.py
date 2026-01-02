@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-i3vpurbg7f98%z-afot!m9q_$t*mxxf&oh1i8kyk*_#p@@695n'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = True
+DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'estadocuenta-2f2j.onrender.com', 'aromotor-backend.onrender.com']
 
@@ -88,8 +88,8 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "aromotor",   #name of db
         "USER": "adminaromotor",
-        "PASSWORD": "xdIvFt7z3nR2tvCaopQH4h6loVRUgi91",
-        "HOST": "dpg-d4s8pfv5r7bs73fq2gn0-a.oregon-postgres.render.com", # or an IP address/host alias
+        "PASSWORD": "f7ffabc66ec47f5c2e03",
+        "HOST": "148.230.80.238", # or an IP address/host alias
         "PORT": "5432",
     }
 }

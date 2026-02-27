@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -184,4 +185,10 @@ JAZZMIN_UI_TWEAKS = {
 }
 
 
+#VARIABLES DE ENTORNO
+
 FRONTEND_URL = 'https://victorialed.netlify.app'
+ODOO_URL = config('ODOO_URL')
+ODOO_DB = config('ODOO_DB')
+ODOO_USER = config('ODOO_USER')
+ODOO_PASSWORD = config('ODOO_PASSWORD')

@@ -811,6 +811,14 @@ def obtener_cxc_aromotor(request):
                 total += f['amount_reconcile']
         return total
 
+    for cliente in cxc:
+        cliente['total_facturas'] = sum(
+            round(f['total'], 2) for f in cliente['facturas']
+        )
+        cliente['total_pendiente'] = sum(
+            round(f['pendiente'], 2) for f in cliente['facturas']
+        )
+
     # Antes del return Response(cxc):
     for cliente in cxc:
         cliente['facturas'] = [

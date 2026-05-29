@@ -16,6 +16,11 @@ class Perfil(models.Model):
     can_export_excel_cartera = models.BooleanField(default=False, verbose_name="Puede exportar Cartera a Excel")
     can_export_all_cartera = models.BooleanField(default=False, verbose_name="Puede exportar Cartera Completa")
     can_export_pdf_cartera = models.BooleanField(default=False, verbose_name="Puede exportar Cartera a PDF")
+
+    # Permisos específicos dentro de "Kardex"
+    can_view_kardex = models.BooleanField(default=False, verbose_name="Puede ver Kardex")
+    can_export_excel_kardex = models.BooleanField(default=False, verbose_name="Puede exportar Kardex a Excel")
+    can_export_pdf_kardex = models.BooleanField(default=False, verbose_name="Puede exportar Kardex a PDF")
     
     def __str__(self):
         return self.perfil

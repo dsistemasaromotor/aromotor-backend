@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import obtener_cxc_aromotor, obtener_cartera_completa, reporte_cobranzas, reporte_pagos, reporte_notas_credito, reporte_combinado, reporte_combinado_detalle, reporte_pagos_test
+from .views import obtener_cxc_aromotor, obtener_cartera_completa, reporte_cobranzas, reporte_pagos, reporte_notas_credito, reporte_combinado, reporte_combinado_detalle, reporte_pagos_test, rep_valoracion_inventario_ubicacion,rep_kardex, get_productos, get_bodegas
 from api import views as api_views
 from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
@@ -9,6 +9,12 @@ urlpatterns = [
     path('obtener-cxc/', obtener_cxc_aromotor),
     path('rep-cobranzas/', reporte_cobranzas),
     path('rep-pagos/', reporte_pagos_test),
+
+    path('get-productos/', get_productos),
+    path('get-ubicaciones/', get_bodegas),
+    path('rep-valoracion/', rep_valoracion_inventario_ubicacion),
+    path('kardex/', rep_kardex),
+
     path('rep-final/', reporte_combinado),
     path('rep-final-detalle/', reporte_combinado_detalle),
     path('rep-nc/', reporte_notas_credito),

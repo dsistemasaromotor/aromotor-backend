@@ -35,7 +35,6 @@ class RegistroUsuarioView(generics.CreateAPIView):
         self.perform_create(serializer)  # Guarda el nuevo usuario y tutor
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-
 """
 @api_view(['GET'])
 def obtener_cxc_aromotor(request):
@@ -1826,3 +1825,562 @@ def reporte_pagos_test(request):
         return response
 
     return Response(resultado)
+
+@api_view(['GET'])
+def get_productos(request):
+    
+    uid, models, db, contraseña = odoo_connection()
+
+    if not uid:
+        return Response({"error": "❌ Error de autenticación con Odoo"}, status=401)
+    
+    productos = models.execute_kw(
+        db, uid, contraseña,
+        'product.product', 'search_read',
+        [[]], 
+        {
+            'fields': ['id','default_code','name']
+        }
+    )
+
+    return Response(productos)
+
+@api_view(['GET'])
+def get_bodegas(request):
+
+    uid, models, db, contraseña = odoo_connection()
+
+    if not uid:
+        return Response(
+            {"error": "❌ Error de autenticación con Odoo"},
+            status=401
+        )
+
+    ubicaciones = models.execute_kw(
+        db,
+        uid,
+        contraseña,
+        'stock.location',
+        'search_read',
+        [
+            [['usage', '=', 'internal']]
+        ],
+        {
+            'fields': [
+                'id',
+                'name',
+                'complete_name'
+            ],
+            'order': 'complete_name ASC'
+        }
+    )
+
+    return Response(ubicaciones)
+
+@api_view(['POST'])
+def rep_valoracion_inventario_ubicacion(request):
+
+    uid, models, db, contraseña = odoo_connection()
+    if not uid:
+        return Response({"error": "❌ Error de autenticación con Odoo"}, status=401)
+
+    # --- 1. Leer y validar parámetros ---
+    data              = request.data
+    fecha_corte_str   = data.get("fecha_corte")
+    ubicaciones_ids   = data.get("ubicaciones", [])
+    productos_ids     = data.get("productos", [])
+    categorias_ids    = data.get("categorias", [])
+    excluir_cero      = data.get("excluir_stock_cero", False)
+
+    if not fecha_corte_str:
+        return Response({"error": "❌ fecha_corte es requerida (YYYY-MM-DD)"}, status=400)
+
+    fecha_corte_dt = f"{fecha_corte_str} 23:59:59"
+
+    # --- 2. Ubicaciones internas ---
+    domain_ubicaciones = [("usage", "=", "internal")]
+    if ubicaciones_ids:
+        domain_ubicaciones.append(("id", "in", ubicaciones_ids))
+
+    ubicaciones = models.execute_kw(db, uid, contraseña,
+        "stock.location", "search_read",
+        [domain_ubicaciones],
+        {"fields": ["id", "complete_name"]}
+    )
+    if not ubicaciones:
+        return Response({"error": "No se encontraron ubicaciones internas"}, status=404)
+
+    ubicaciones_ids_validas = [u["id"] for u in ubicaciones]
+    ubicaciones_map         = {u["id"]: u["complete_name"] for u in ubicaciones}
+
+    # --- 3. Filtro de productos por categoría (solo si hace falta) ---
+    productos_validos_ids = []
+    if productos_ids or categorias_ids:
+        domain_productos = []
+        if productos_ids:
+            domain_productos.append(("id", "in", productos_ids))
+        if categorias_ids:
+            domain_productos.append(("categ_id", "in", categorias_ids))
+
+        prods = models.execute_kw(db, uid, contraseña,
+            "product.product", "search",
+            [domain_productos]
+        )
+        if not prods:
+            return Response({"datos": [], "mensaje": "Sin productos para los filtros dados"})
+        productos_validos_ids = prods
+
+    # --- 4. Paginación de stock.move.line ---
+    domain_sml = [
+        ("state", "=", "done"),
+        ("date",  "<=", fecha_corte_dt),
+        "|",
+        ("location_dest_id", "in", ubicaciones_ids_validas),
+        ("location_id",      "in", ubicaciones_ids_validas),
+    ]
+    if productos_validos_ids:
+        domain_sml.append(("product_id", "in", productos_validos_ids))
+
+    BATCH_SIZE = 2000
+    offset     = 0
+    movimientos = []
+
+    while True:
+        batch = models.execute_kw(db, uid, contraseña,
+            "stock.move.line", "search_read",
+            [domain_sml],
+            {
+                "fields": ["product_id", "location_id", "location_dest_id", "qty_done"],
+                "limit":  BATCH_SIZE,
+                "offset": offset,
+            }
+        )
+        if not batch:
+            break
+        movimientos.extend(batch)
+        offset += BATCH_SIZE
+
+    # --- 5. Calcular stock por (producto, ubicación) en un solo pase ---
+    ubicaciones_set = set(ubicaciones_ids_validas)
+    stock_qty       = defaultdict(float)
+
+    for mov in movimientos:
+        prod_id  = mov["product_id"][0]
+        src_id   = mov["location_id"][0]
+        dest_id  = mov["location_dest_id"][0]
+        qty_done = mov["qty_done"]
+
+        if dest_id in ubicaciones_set:
+            stock_qty[(prod_id, dest_id)] += qty_done
+        if src_id in ubicaciones_set:
+            stock_qty[(prod_id, src_id)]  -= qty_done
+
+    if excluir_cero:
+        stock_qty = {k: v for k, v in stock_qty.items() if round(v, 4) > 0}
+
+    if not stock_qty:
+        return Response({"datos": [], "mensaje": "Sin stock para los parámetros dados"})
+
+    # --- 6. Paginación de stock.valuation.layer ---
+    product_ids_con_stock = list({k[0] for k in stock_qty})
+
+    domain_svl = [
+        ("product_id", "in", product_ids_con_stock),
+        ("create_date", "<=", fecha_corte_dt),
+    ]
+
+    offset = 0
+    capas  = []
+
+    while True:
+        batch = models.execute_kw(db, uid, contraseña,
+            "stock.valuation.layer", "search_read",
+            [domain_svl],
+            {
+                "fields": ["product_id", "quantity", "value"],
+                "limit":  BATCH_SIZE,
+                "offset": offset,
+            }
+        )
+        if not batch:
+            break
+        capas.extend(batch)
+        offset += BATCH_SIZE
+
+    # Acumular costo promedio
+    costo_acum = defaultdict(lambda: [0.0, 0.0])
+    for c in capas:
+        pid = c["product_id"][0]
+        costo_acum[pid][0] += c["quantity"]
+        costo_acum[pid][1] += c["value"]
+
+    costo_unitario_map = {
+        pid: (acc[1] / acc[0] if acc[0] else 0.0)
+        for pid, acc in costo_acum.items()
+    }
+
+    # --- 7. Info de productos ---
+    productos_info = models.execute_kw(db, uid, contraseña,
+        "product.product", "search_read",
+        [[("id", "in", product_ids_con_stock)]],
+        {"fields": ["id", "name", "default_code", "categ_id"]}
+    )
+    productos_map = {p["id"]: p for p in productos_info}
+
+    # --- 8. Construir y ordenar resultado ---
+    resultado = []
+    for (prod_id, ubic_id), qty in stock_qty.items():
+        prod = productos_map.get(prod_id)
+        if not prod:
+            continue
+        costo = costo_unitario_map.get(prod_id, 0.0)
+        resultado.append({
+            "producto_id":     prod_id,
+            "producto_codigo": prod.get("default_code") or "",
+            "producto_nombre": prod.get("name") or "",
+            "categoria":       prod["categ_id"][1] if prod.get("categ_id") else "",
+            "ubicacion_id":    ubic_id,
+            "ubicacion":       ubicaciones_map.get(ubic_id, ""),
+            "cantidad":        round(qty, 4),
+            "costo_unitario":  round(costo, 4),
+            "valor_total":     round(qty * costo, 4),
+        })
+
+    resultado.sort(key=lambda x: (x["ubicacion"], x["categoria"], x["producto_nombre"]))
+
+    return Response({
+        "fecha_corte":     fecha_corte_str,
+        "total_registros": len(resultado),
+        "datos":           resultado,
+    })
+
+
+@api_view(['POST'])
+def rep_kardex(request):
+
+    uid, models, db, contraseña = odoo_connection()
+    if not uid:
+        return Response({"error": "❌ Error de autenticación con Odoo"}, status=401)
+
+    # --- 1. Parámetros ---
+    data             = request.data
+    fecha_inicio_str = data.get("fecha_inicio")
+    fecha_fin_str    = data.get("fecha_fin")
+    ubicaciones_ids  = data.get("ubicaciones", [])
+    productos_ids    = data.get("productos", [])
+
+    if not fecha_fin_str:
+        return Response({"error": "❌ fecha_fin es requerida (YYYY-MM-DD)"}, status=400)
+
+    fecha_fin_dt    = f"{fecha_fin_str} 23:59:59"
+    fecha_inicio_dt = f"{fecha_inicio_str} 00:00:00" if fecha_inicio_str else None
+
+    # --- 2. Ubicaciones internas ---
+    domain_ubicaciones = [("usage", "=", "internal")]
+    if ubicaciones_ids:
+        domain_ubicaciones.append(("id", "in", ubicaciones_ids))
+
+    ubicaciones = models.execute_kw(db, uid, contraseña,
+        "stock.location", "search_read",
+        [domain_ubicaciones],
+        {"fields": ["id", "complete_name"]}
+    )
+    if not ubicaciones:
+        return Response({"error": "No se encontraron ubicaciones internas"}, status=404)
+
+    ubicaciones_ids_validas = [u["id"] for u in ubicaciones]
+    ubicaciones_map         = {u["id"]: u["complete_name"] for u in ubicaciones}
+    ubicaciones_set         = set(ubicaciones_ids_validas)
+
+    # --- 3. Filtro de productos ---
+    if not productos_ids:
+        return Response({"error": "❌ Debe enviar al menos un producto"}, status=400)
+
+    # --- 4. Saldo inicial por (producto, ubicación) antes de fecha_inicio ---
+    saldo_inicial_map = defaultdict(float)
+    movimientos_saldo = []
+
+    if fecha_inicio_dt:
+        domain_saldo = [
+            ("state",      "=", "done"),
+            ("date",       "<", fecha_inicio_dt),
+            ("product_id", "in", productos_ids),
+            "|",
+            ("location_dest_id", "in", ubicaciones_ids_validas),
+            ("location_id",      "in", ubicaciones_ids_validas),
+        ]
+
+        BATCH_SIZE = 2000
+        offset     = 0
+
+        while True:
+            batch = models.execute_kw(db, uid, contraseña,
+                "stock.move.line", "search_read",
+                [domain_saldo],
+                {
+                    "fields": ["product_id", "location_id", "location_dest_id", "qty_done"],
+                    "limit":  BATCH_SIZE,
+                    "offset": offset,
+                }
+            )
+            if not batch:
+                break
+            movimientos_saldo.extend(batch)
+            for mov in batch:
+                prod_id  = mov["product_id"][0]
+                src_id   = mov["location_id"][0]
+                dest_id  = mov["location_dest_id"][0]
+                qty_done = mov["qty_done"]
+
+                # FIX: ignorar movimientos fantasma (origen == destino)
+                if src_id == dest_id:
+                    continue
+
+                if dest_id in ubicaciones_set:
+                    saldo_inicial_map[(prod_id, dest_id)] += qty_done
+                if src_id in ubicaciones_set:
+                    saldo_inicial_map[(prod_id, src_id)]  -= qty_done
+            offset += BATCH_SIZE
+
+    # --- 5. Movimientos dentro del rango ---
+    domain_sml = [
+        ("state",      "=", "done"),
+        ("date",       "<=", fecha_fin_dt),
+        ("product_id", "in", productos_ids),
+        "|",
+        ("location_dest_id", "in", ubicaciones_ids_validas),
+        ("location_id",      "in", ubicaciones_ids_validas),
+    ]
+    if fecha_inicio_dt:
+        domain_sml.append(("date", ">=", fecha_inicio_dt))
+
+    BATCH_SIZE  = 2000
+    offset      = 0
+    movimientos = []
+
+    while True:
+        batch = models.execute_kw(db, uid, contraseña,
+            "stock.move.line", "search_read",
+            [domain_sml],
+            {
+                "fields": [
+                    "product_id", "location_id", "location_dest_id",
+                    "qty_done", "date", "reference", "move_id",
+                ],
+                "limit":  BATCH_SIZE,
+                "offset": offset,
+                "order":  "date asc",
+            }
+        )
+        if not batch:
+            break
+        movimientos.extend(batch)
+        offset += BATCH_SIZE
+
+    # --- 5b. Recolectar IDs de ubicaciones de ambos conjuntos ---
+    todos_location_ids = set()
+    for mov in movimientos:
+        todos_location_ids.add(mov["location_id"][0])
+        todos_location_ids.add(mov["location_dest_id"][0])
+    for mov in movimientos_saldo:
+        todos_location_ids.add(mov["location_id"][0])
+        todos_location_ids.add(mov["location_dest_id"][0])
+
+    if todos_location_ids:
+        ubicaciones_extra = models.execute_kw(db, uid, contraseña,
+            "stock.location", "search_read",
+            [[
+                ("id", "in", list(todos_location_ids)),
+                ("active", "in", [True, False]),
+            ]],
+            {"fields": ["id", "complete_name"]}
+        )
+        for u in ubicaciones_extra:
+            ubicaciones_map[u["id"]] = u["complete_name"]
+
+    # --- 6. Costo por move_id ---
+    move_ids = list({m["move_id"][0] for m in movimientos if m.get("move_id")})
+    costo_por_move = {}
+
+    if move_ids:
+        offset = 0
+        while True:
+            batch = models.execute_kw(db, uid, contraseña,
+                "stock.move", "search_read",
+                [[("id", "in", move_ids)]],
+                {
+                    "fields": ["id", "price_unit"],
+                    "limit":  BATCH_SIZE,
+                    "offset": offset,
+                }
+            )
+            if not batch:
+                break
+            for m in batch:
+                costo_por_move[m["id"]] = {
+                    "costo_unitario": round(abs(m.get("price_unit") or 0.0), 4),
+                    "valor":          0.0,
+                }
+            offset += BATCH_SIZE
+
+        offset = 0
+        while True:
+            batch = models.execute_kw(db, uid, contraseña,
+                "stock.valuation.layer", "search_read",
+                [[("stock_move_id", "in", move_ids)]],
+                {
+                    "fields": ["stock_move_id", "quantity", "value"],
+                    "limit":  BATCH_SIZE,
+                    "offset": offset,
+                }
+            )
+            if not batch:
+                break
+            for c in batch:
+                mid = c["stock_move_id"][0]
+                qty = c["quantity"]
+                val = c["value"]
+                costo_unitario = (val / qty) if qty else 0.0
+                costo_por_move[mid] = {
+                    "costo_unitario": round(abs(costo_unitario), 4),
+                    "valor":          round(abs(val), 4),
+                }
+            offset += BATCH_SIZE
+
+    # --- 7. Info de productos ---
+    productos_info = models.execute_kw(db, uid, contraseña,
+        "product.product", "search_read",
+        [[("id", "in", productos_ids)]],
+        {"fields": ["id", "name", "default_code"]}
+    )
+    productos_map = {p["id"]: p for p in productos_info}
+
+    # --- 8. Agrupar movimientos por (producto, ubicación) ---
+    grupos = defaultdict(list)
+
+    for mov in movimientos:
+        prod_id  = mov["product_id"][0]
+        src_id   = mov["location_id"][0]
+        dest_id  = mov["location_dest_id"][0]
+        qty_done = mov["qty_done"]
+        move_id  = mov["move_id"][0] if mov.get("move_id") else None
+        costo    = costo_por_move.get(move_id, {"costo_unitario": 0.0, "valor": 0.0})
+
+        valor_calculado = costo["valor"] if costo["valor"] != 0.0 else round(qty_done * costo["costo_unitario"], 4)
+
+        src_interna  = src_id in ubicaciones_set
+        dest_interna = dest_id in ubicaciones_set
+
+        # FIX: movimiento fantasma de Odoo (revaloraciones, ajustes internos)
+        if src_id == dest_id:
+            continue
+
+        if dest_interna and not src_interna:
+            # Ingreso puro
+            grupos[(prod_id, dest_id)].append({
+                "fecha":             mov["date"][:10] if mov.get("date") else "",
+                "ubicacion_origen":  ubicaciones_map.get(src_id, str(src_id)),
+                "ubicacion_destino": ubicaciones_map.get(dest_id, str(dest_id)),
+                "no_movimiento":     mov.get("reference") or "",
+                "no_documento":      mov.get("reference") or "",
+                "ingreso_cantidad":  round(qty_done, 4),
+                "ingreso_costo":     costo["costo_unitario"],
+                "ingreso_valor":     valor_calculado,
+                "egreso_cantidad":   0.0,
+                "egreso_costo":      0.0,
+                "egreso_valor":      0.0,
+                "_qty_delta":        qty_done,
+            })
+
+        elif src_interna and not dest_interna:
+            # Egreso puro
+            grupos[(prod_id, src_id)].append({
+                "fecha":             mov["date"][:10] if mov.get("date") else "",
+                "ubicacion_origen":  ubicaciones_map.get(src_id, str(src_id)),
+                "ubicacion_destino": ubicaciones_map.get(dest_id, str(dest_id)),
+                "no_movimiento":     mov.get("reference") or "",
+                "no_documento":      mov.get("reference") or "",
+                "ingreso_cantidad":  0.0,
+                "ingreso_costo":     0.0,
+                "ingreso_valor":     0.0,
+                "egreso_cantidad":   round(qty_done, 4),
+                "egreso_costo":      costo["costo_unitario"],
+                "egreso_valor":      valor_calculado,
+                "_qty_delta":        -qty_done,
+            })
+
+        elif src_interna and dest_interna:
+            # Transferencia interna entre dos ubicaciones distintas
+            grupos[(prod_id, dest_id)].append({
+                "fecha":             mov["date"][:10] if mov.get("date") else "",
+                "ubicacion_origen":  ubicaciones_map.get(src_id, str(src_id)),
+                "ubicacion_destino": ubicaciones_map.get(dest_id, str(dest_id)),
+                "no_movimiento":     mov.get("reference") or "",
+                "no_documento":      mov.get("reference") or "",
+                "ingreso_cantidad":  round(qty_done, 4),
+                "ingreso_costo":     costo["costo_unitario"],
+                "ingreso_valor":     valor_calculado,
+                "egreso_cantidad":   0.0,
+                "egreso_costo":      0.0,
+                "egreso_valor":      0.0,
+                "_qty_delta":        qty_done,
+            })
+            grupos[(prod_id, src_id)].append({
+                "fecha":             mov["date"][:10] if mov.get("date") else "",
+                "ubicacion_origen":  ubicaciones_map.get(src_id, str(src_id)),
+                "ubicacion_destino": ubicaciones_map.get(dest_id, str(dest_id)),
+                "no_movimiento":     mov.get("reference") or "",
+                "no_documento":      mov.get("reference") or "",
+                "ingreso_cantidad":  0.0,
+                "ingreso_costo":     0.0,
+                "ingreso_valor":     0.0,
+                "egreso_cantidad":   round(qty_done, 4),
+                "egreso_costo":      costo["costo_unitario"],
+                "egreso_valor":      valor_calculado,
+                "_qty_delta":        -qty_done,
+            })
+
+    # --- 9. Calcular saldo acumulado y construir resultado ---
+    resultado = []
+
+    for (prod_id, ubic_id), movs in grupos.items():
+        prod          = productos_map.get(prod_id, {})
+        saldo_inicial = round(saldo_inicial_map.get((prod_id, ubic_id), 0.0), 4)
+        saldo_actual  = saldo_inicial
+
+        movs_limpios = []
+        for m in movs:
+            saldo_actual += m["_qty_delta"]
+            movs_limpios.append({
+                "fecha":                  m["fecha"],
+                "ubicacion_origen":       m["ubicacion_origen"],
+                "ubicacion_destino":      m["ubicacion_destino"],
+                "no_movimiento":          m["no_movimiento"],
+                "no_documento":           m["no_documento"],
+                "ingreso_cantidad":       m["ingreso_cantidad"],
+                "ingreso_costo":          m["ingreso_costo"],
+                "ingreso_valor":          m["ingreso_valor"],
+                "egreso_cantidad":        m["egreso_cantidad"],
+                "egreso_costo":           m["egreso_costo"],
+                "egreso_valor":           m["egreso_valor"],
+                "saldo_total_inventario": round(saldo_actual, 4),
+            })
+
+        resultado.append({
+            "producto_id":     prod_id,
+            "producto_codigo": prod.get("default_code") or "",
+            "producto_nombre": prod.get("name") or "",
+            "ubicacion_id":    ubic_id,
+            "ubicacion":       ubicaciones_map.get(ubic_id, ""),
+            "saldo_inicial":   saldo_inicial,
+            "movimientos":     movs_limpios,
+        })
+
+    resultado.sort(key=lambda x: (x["ubicacion"], x["producto_nombre"]))
+
+    return Response({
+        "fecha_inicio":  fecha_inicio_str or "",
+        "fecha_fin":     fecha_fin_str,
+        "total_grupos":  len(resultado),
+        "datos":         resultado,
+    })
